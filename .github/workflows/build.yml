@@ -63,7 +63,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
     - id: set-targets
-      run: echo "targets=[$( (grep '\[env:.*UART\]' src/targets/unified.ini ; grep '\[env:.*STLINK\]' src/targets/) )]" >> $GITHUB_OUTPUT
+      run: echo "targets=[$( (grep '\[env:.*UART\]' src/targets/unified.ini ; grep '\[env:.*UART\]' src/targets/iFlight_2400.ini) )]" >> $GITHUB_OUTPUT
 
   build:
     needs: targets
