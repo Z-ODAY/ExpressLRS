@@ -29,7 +29,7 @@ const char *wifi_ap_address = "10.0.0.1";
 const char device_name[] = DEVICE_NAME;
 const char *product_name = (const char *)(target_name+4);
 
-__attribute__ ((used)) const firmware_options_t firmwareOptions = {
+__attribute__ ((used)) static firmware_options_t flashedOptions = {
     ._magic_ = {0xBE, 0xEF, 0xBA, 0xBE, 0xCA, 0xFE, 0xF0, 0x0D},
     ._version_ = 1,
 #if defined(Regulatory_Domain_ISM_2400)
@@ -78,8 +78,10 @@ __attribute__ ((used)) const firmware_options_t firmwareOptions = {
 #if defined(TARGET_RX)
 #if defined(USE_AIRPORT_AT_BAUD)
     .uart_baud = USE_AIRPORT_AT_BAUD,
-#elif defined(USE_SBUS_PROTOCOL)
+#elif defined(USE_SBUS_PROTOCOL) || defined(USE_DJI_RS_PRO_PROTOCOL)
     .uart_baud = 100000,
+#elif defined(USE_SUMD_PROTOCOL)
+    .uart_baud = 115200,
 #elif defined(RCVR_UART_BAUD)
     .uart_baud = RCVR_UART_BAUD,
 #else
@@ -150,6 +152,18 @@ __attribute__ ((used)) const firmware_options_t firmwareOptions = {
 #endif
 };
 
+/*
+ * This all seems rather convoluted, but it means that the compiler/linker optimisations
+ * don't create multiple copies of the UID. This code forces the firmwareOptions to be copied
+ * into RAM and all the other areas of code are forced to use the RAM copy.
+ */
+firmware_options_t firmwareOptions;
+bool options_init()
+{
+    firmwareOptions = flashedOptions;
+    return true;
+}
+
 #else // TARGET_UNIFIED_TX || TARGET_UNIFIED_RX
 
 #include <ArduinoJson.h>
@@ -167,6 +181,10 @@ __attribute__ ((used)) const firmware_options_t firmwareOptions = {
 char product_name[ELRSOPTS_PRODUCTNAME_SIZE+1];
 char device_name[ELRSOPTS_DEVICENAME_SIZE+1];
 
+// Discriminator value used to determine if the device has been reflashed and therefore
+// the SPIFSS settings are obsolete and the flashed settings should be used in preference
+uint32_t flash_discriminator;
+
 firmware_options_t firmwareOptions;
 
 // hardware_init prototype here as it is called by options_init()
@@ -178,7 +196,7 @@ String& getOptions()
     return builtinOptions;
 }
 
-void saveOptions(Stream &stream)
+void saveOptions(Stream &stream, bool customised)
 {
     DynamicJsonDocument doc(1024);
 
@@ -205,6 +223,8 @@ void saveOptions(Stream &stream)
     #endif
     doc["is-airport"] = firmwareOptions.is_airport;
     doc["domain"] = firmwareOptions.domain;
+    doc["customised"] = customised;
+    doc["flash-discriminator"] = flash_discriminator;
 
     serializeJson(doc, stream);
 }
@@ -212,7 +232,7 @@ void saveOptions(Stream &stream)
 void saveOptions()
 {
     File options = SPIFFS.open("/options.json", "w");
-    saveOptions(options);
+    saveOptions(options, true);
     options.close();
 }
 
@@ -220,7 +240,7 @@ void saveOptions()
  * @brief:  Checks if the strmFlash currently is pointing to something that looks like
  *          a string (not all 0xFF). Position in the stream will not be changed.
  * @return: true if appears to have a string
-*/
+ */
 bool options_HasStringInFlash(EspFlashStream &strmFlash)
 {
     uint32_t firstBytes;
@@ -235,32 +255,49 @@ bool options_HasStringInFlash(EspFlashStream &strmFlash)
  * @brief:  Internal read options from either the flash stream at the end of the sketch or the options.json file
  *          Fills the firmwareOptions variable
  * @return: true if either was able to be parsed
-*/
- static bool options_LoadFromFlashOrFile(EspFlashStream &strmFlash)
+ */
+static void options_LoadFromFlashOrFile(EspFlashStream &strmFlash)
 {
-    Stream *strmSrc;
-    DynamicJsonDocument doc(1024);
-    File file = SPIFFS.open("/options.json", "r");
-    if (!file || file.isDirectory())
+    DynamicJsonDocument flashDoc(1024);
+    DynamicJsonDocument spiffsDoc(1024);
+    bool hasFlash = false;
+    bool hasSpiffs = false;
+
+    // Try OPTIONS JSON at the end of the firmware, after PRODUCTNAME DEVICENAME
+    constexpr size_t optionConfigOffset = ELRSOPTS_PRODUCTNAME_SIZE + ELRSOPTS_DEVICENAME_SIZE;
+    strmFlash.setPosition(optionConfigOffset);
+    if (options_HasStringInFlash(strmFlash))
     {
-        // Try OPTIONS JSON at the end of the firmware, after PRODUCTNAME DEVICENAME
-        constexpr size_t optionConfigOffset = ELRSOPTS_PRODUCTNAME_SIZE + ELRSOPTS_DEVICENAME_SIZE;
-        strmFlash.setPosition(optionConfigOffset);
-        if (!options_HasStringInFlash(strmFlash))
+        DeserializationError error = deserializeJson(flashDoc, strmFlash);
+        if (error)
         {
-            return false;
+            return;
         }
-        strmSrc = &strmFlash;
-    }
-    else
-    {
-        strmSrc = &file;
+        hasFlash = true;
     }
 
-    DeserializationError error = deserializeJson(doc, *strmSrc);
-    if (error)
+    // load options.json from the SPIFFS partition
+    File file = SPIFFS.open("/options.json", "r");
+    if (file && !file.isDirectory())
     {
-        return false;
+        DeserializationError error = deserializeJson(spiffsDoc, file);
+        if (!error)
+        {
+            hasSpiffs = true;
+        }
+    }
+
+    DynamicJsonDocument &doc = flashDoc;
+    if (hasFlash && hasSpiffs)
+    {
+        if (flashDoc["flash-discriminator"] == spiffsDoc["flash-discriminator"])
+        {
+            doc = spiffsDoc;
+        }
+    }
+    else if (hasSpiffs)
+    {
+        doc = spiffsDoc;
     }
 
     if (doc["uid"].is<JsonArray>())
@@ -299,8 +336,10 @@ bool options_HasStringInFlash(EspFlashStream &strmFlash)
     firmwareOptions.lock_on_first_connection = doc["lock-on-first-connection"] | true;
     #endif
     firmwareOptions.domain = doc["domain"] | 0;
+    flash_discriminator = doc["flash-discriminator"] | 0U;
 
-    return true;
+    builtinOptions.clear();
+    saveOptions(builtinOptions, doc["customised"] | false);
 }
 
 /**
@@ -358,11 +397,7 @@ bool options_init()
     // Product / Device Name
     options_LoadProductAndDeviceName(strmFlash);
     // options.json
-    if (options_LoadFromFlashOrFile(strmFlash))
-    {
-        builtinOptions.clear();
-        saveOptions(builtinOptions);
-    }
+    options_LoadFromFlashOrFile(strmFlash);
     // hardware.json
     bool hasHardware = hardware_init(strmFlash);
 

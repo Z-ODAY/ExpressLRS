@@ -8,6 +8,10 @@
 extern TCPSOCKET wifi2tcp;
 #endif
 
+#if defined(HAS_MSP_VTX) && defined(TARGET_RX)
+#include "devMSPVTX.h"
+#endif
+
 #if defined(UNIT_TEST)
 #include <iostream>
 using namespace std;
@@ -144,7 +148,10 @@ bool Telemetry::RXhandleUARTin(uint8_t data)
 {
     switch(telemetry_state) {
         case TELEMETRY_IDLE:
-            if (data == CRSF_ADDRESS_CRSF_RECEIVER || data == CRSF_SYNC_BYTE)
+            // Telemetry from Betaflight/iNav starts with CRSF_SYNC_BYTE (CRSF_ADDRESS_FLIGHT_CONTROLLER)
+            // from a TX module it will be addressed to CRSF_ADDRESS_RADIO_TRANSMITTER (RX used as a relay)
+            // and things addressed to CRSF_ADDRESS_CRSF_RECEIVER I guess we should take too since that's us, but we'll just forward them
+            if (data == CRSF_SYNC_BYTE || data == CRSF_ADDRESS_RADIO_TRANSMITTER || data == CRSF_ADDRESS_CRSF_RECEIVER)
             {
                 currentTelemetryByte = 0;
                 telemetry_state = RECEIVING_LENGTH;
@@ -269,6 +276,9 @@ bool Telemetry::AppendTelemetryPackage(uint8_t *package)
                 // larger msp resonses are sent in two chunks so special handling is needed so both get sent
                 if (header->type == CRSF_FRAMETYPE_MSP_RESP)
                 {
+#if defined(HAS_MSP_VTX) && defined(TARGET_RX)
+                    mspVtxProcessPacket(package);
+#endif
                     // there is already another response stored
                     if (payloadTypes[targetIndex].updated)
                     {
@@ -296,7 +306,7 @@ bool Telemetry::AppendTelemetryPackage(uint8_t *package)
         {
             if (header->type == payloadTypes[i].type)
             {
-                if (!payloadTypes[i].locked && CRSF_FRAME_SIZE(package[CRSF_TELEMETRY_LENGTH_INDEX]) <= payloadTypes[i].size)
+                if (CRSF_FRAME_SIZE(package[CRSF_TELEMETRY_LENGTH_INDEX]) <= payloadTypes[i].size)
                 {
                     targetIndex = i;
                     targetFound = true;
@@ -312,7 +322,7 @@ bool Telemetry::AppendTelemetryPackage(uint8_t *package)
         }
     }
 
-    if (targetFound)
+    if (targetFound && !payloadTypes[targetIndex].locked)
     {
         memcpy(payloadTypes[targetIndex].data, package, CRSF_FRAME_SIZE(package[CRSF_TELEMETRY_LENGTH_INDEX]));
         payloadTypes[targetIndex].updated = true;

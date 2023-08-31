@@ -4,16 +4,17 @@
 
     "radio_miso": 33,
     "radio_mosi": 32,
-    "radio_rst": 26,
     "radio_sck": 25,
 
     "radio_busy": 36,
     "radio_dio1": 37,
     "radio_nss": 27,
+    "radio_rst": 26,
 
     "radio_busy_2": 39,
     "radio_dio1_2": 34,
     "radio_nss_2": 13,
+    "radio_rst_2": 21,
 
     "power_rxen": 10,
     "power_txen": 14,
@@ -43,8 +44,8 @@
     "vtx_amp_vpd": 4,
     "vtx_amp_vref": 2,
 
-    "vtx_amp_vpd_25mW": [1350,1350,1350,1350],
-    "vtx_amp_vpd_100mW": [1600,1600,1600,1600],
+    "vtx_amp_vpd_25mW": [600,600,600,600],
+    "vtx_amp_vpd_100mW": [1500,1500,1500,1500],
 
     "button": 0
 }

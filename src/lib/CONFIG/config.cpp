@@ -566,6 +566,24 @@ TxConfig::SetButtonActions(uint8_t button, tx_button_color_t *action)
 }
 
 void
+TxConfig::SetPTRStartChannel(uint8_t ptrStartChannel)
+{
+    if (ptrStartChannel != m_model->ptrStartChannel) {
+        m_model->ptrStartChannel = ptrStartChannel;
+        m_modified |= MODEL_CHANGED;
+    }
+}
+
+void
+TxConfig::SetPTREnableChannel(uint8_t ptrEnableChannel)
+{
+    if (ptrEnableChannel != m_model->ptrEnableChannel) {
+        m_model->ptrEnableChannel = ptrEnableChannel;
+        m_modified |= MODEL_CHANGED;
+    }
+}
+
+void
 TxConfig::SetDefaults(bool commit)
 {
     // Reset everything to 0/false and then just set anything that zero is not appropriate
@@ -998,6 +1016,15 @@ void RxConfig::SetSerialProtocol(eSerialProtocol serialProtocol)
     if (m_config.serialProtocol != serialProtocol)
     {
         m_config.serialProtocol = serialProtocol;
+        m_modified = true;
+    }
+}
+
+void RxConfig::SetFailsafeMode(eFailsafeMode failsafeMode)
+{
+    if (m_config.failsafeMode != failsafeMode)
+    {
+        m_config.failsafeMode = failsafeMode;
         m_modified = true;
     }
 }
