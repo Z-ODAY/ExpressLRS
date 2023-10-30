@@ -1575,7 +1575,7 @@ void setup()
     if (hardwareConfigured)
     {
         // default to CRSF protocol and the compiled baud rate
-        serialBaud = firmwareOptions.uart_baud;
+        serialBaud = 400000; //firmwareOptions.uart_baud;
 
         // pre-initialise serial must be done before anything as some libs write
         // to the serial port and they'll block if the buffer fills
