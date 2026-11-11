@@ -1034,6 +1034,8 @@ static bool ICACHE_RAM_ATTR ProcessRfPacket_SYNC(uint32_t const now, OTA_Sync_s 
     // and hardware frontend for it. Ignore the mode switch if not valid.
     uint8_t proposedRateIdx;
     expresslrs_RFrates_e proposedRateEnum = (expresslrs_RFrates_e)otaSync->rfRateEnum;
+    DBGLN("otarete:%d",otaSync->rfRateEnum);
+
     if (!enumRatetoIndex(proposedRateEnum, proposedRateIdx)
         || !isSupportedRFRate(proposedRateIdx))
     {
@@ -1127,6 +1129,7 @@ bool ICACHE_RAM_ATTR ProcessRFPacket(SX12xxDriverCommon::rx_status const status)
         #endif
         return false;
     }
+
 
     // The extEvent defines where TOCK timer ISR is to be synced to, i.e. where the packet period begins.
     // For rates where the TOA is longer than half the packet period schedule the TOCK for rougly 1x TOA before
@@ -1669,15 +1672,16 @@ static void cycleRfMode(unsigned long now)
         SetRFLinkRate(scanIndex % RATE_MAX, false); // switch between rates
         LQCalc.reset100();
         LQCalcDVDA.reset100();
-        scanIndex++;
+        //scanIndex++;
+        scanIndex = 6;
         Radio.RXnb();
         DBGLN("%u", ExpressLRS_currAirRate_Modparams->interval);
 
-        // Skip unsupported modes for hardware with only a single LR1121 or with a single RF path
+        //Skip unsupported modes for hardware with only a single LR1121 or with a single RF path
         while (!isSupportedRFRate(scanIndex % RATE_MAX))
         {
             DBGLN("Skip %u", get_elrs_airRateConfig(scanIndex % RATE_MAX)->interval);
-            scanIndex++;
+            //scanIndex++;
         }
 
         // Switch to FAST_SYNC if not already in it (won't be if was just connected)

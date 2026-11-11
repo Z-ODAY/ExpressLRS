@@ -314,11 +314,13 @@ bool ICACHE_RAM_ATTR isSupportedRFRate(uint8_t index)
     // 900MHz and Dual Band modes not supported for hardware with no 900MHz power values
     if (POWER_OUTPUT_VALUES_COUNT == 0 && !RadioBandMod::isB2G4(ModParams->radio_type))
     {
+        DBGLN("no power values or DualBand modes not supported");
         return false;
     }
     // 2.4GHz and Dual Band modes not supported for hardware with no 2.4GHz power values
     if (POWER_OUTPUT_VALUES_DUAL_COUNT == 0 && !RadioBandMod::isB900(ModParams->radio_type))
     {
+        DBGLN("no power values or DualBand modes not supported");
         return false;
     }
     return true;

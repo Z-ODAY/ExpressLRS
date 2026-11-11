@@ -24,7 +24,7 @@
 #-DRegulatory_Domain_EU_433
 #-DRegulatory_Domain_US_433
 #-DRegulatory_Domain_US_433_WIDE
-#-DRegulatory_Domain_FCC_915
+-DRegulatory_Domain_FCC_915
 #-DRegulatory_Domain_TH_920
 #-DRegulatory_Domain_ISM_2400
 #-DRegulatory_Domain_EU_CE_2400
@@ -58,34 +58,19 @@
 ### Debugging options ###
 
 # Turn on debug messages, if disabled then all debugging options (starting with DEBUG_) are disabled
+#-DRCVR_UART_BAUD=460800
 #-DDEBUG_LOG
-
-# For an ESP32S3 MCU, there are two options:
-# 1 - Pull-up on GPIO3, USB for JTAG (on MI_02), debug logging uses main UART.
-# 2 - Pull-down on GPIO3, Individual pins for JTAG (MTDI/MTMS/MTCK/MTDO), debug logging via USB for CDC UART (on MI_00)
-#-DESP32_S3_USB_JTAG_ENABLED
-
-# Use DEBUG_LOG_VERBOSE instead (or both) to see verbose debug logging (spammy stuff)
 #-DDEBUG_LOG_VERBOSE
-
-# Print a letter for each packet received or missed (RX debugging)
-#-DDEBUG_RX_SCOREBOARD
-
-# Don't send RC msgs over UART
 #-DDEBUG_CRSF_NO_OUTPUT
 
-# These debugging options send extra information to BetaFlight in the LinkStatistics packet
+#-DDEBUG_RX_SCOREBOARD
 #-DDEBUG_BF_LINK_STATS
-
-# Prints a log line for every channels packet received at the RX:
-#    ID,Antenna,RSSI,LQ,SNR,PWR,FHSS,TimingOffset
-# The ID is generated on the TX side and overwrites CH1-CH4 and increments once for every
-# channels packet. Writes directly to Serial, does not require DEBUG_LOG.
-# Flash both TX & RX with this enabled to use it if the ID is required.
 #-DDEBUG_RCVR_LINKSTATS
-
-# This debug option reports dual radio RSSI&SNR, which is useful for validating a TD receiver
 #-DDEBUG_RCVR_SIGNAL_STATS
+
+
+
+
 
 # Enable reporting of RF FreqCorrection in RX's SNR LinkStatistics, also decreases packet rate
 # on Team2.4 for the additional time needed to include the packet header / enable FreqCorrection
